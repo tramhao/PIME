@@ -67,7 +67,9 @@ RequestExecutionLevel admin
 ; Custom IE Protected Mode
 ; custom page
 Var HWND
-ReserveFile ".\resource\zh_TW\ieprotectedpage.ini" ".\resource\zh_CN\ieprotectedpage.ini"
+ReserveFile ".\resource\zh_TW\ieprotectedpage.ini" \
+            ".\resource\zh_CN\ieprotectedpage.ini" \
+            ".\resource\en_US\ieprotectedpage.ini"
 Page custom setIEProtectedPage leaveIEProtectedPage
 
 ; installation progress page
@@ -88,17 +90,18 @@ Page custom setIEProtectedPage leaveIEProtectedPage
   !include "locale\${LANGLOAD}.nsh"
   !undef LANG
 !macroend
- 
+
 !macro LANG_STRING NAME VALUE
   LangString "${NAME}" "${LANG_${LANG}}" "${VALUE}"
 !macroend
- 
+
 !macro LANG_UNSTRING NAME VALUE
   !insertmacro LANG_STRING "un.${NAME}" "${VALUE}"
 !macroend
 
-!insertmacro LANG_LOAD "TradChinese" ; traditional Chinese
+!insertmacro LANG_LOAD "TradChinese" ; Traditional Chinese
 !insertmacro LANG_LOAD "SimpChinese" ; Simplified Chinese
+!insertmacro LANG_LOAD "English" ; English
 
 var UPDATEX86DLL
 var UPDATEX64DLL
@@ -243,6 +246,8 @@ Function .onInit
 	Push "繁體中文"
 	Push ${LANG_SIMPCHINESE}
 	Push "简体中文"
+	Push ${LANG_ENGLISH}
+	Push "English"
 	Push A ; A means auto count languages
 	       ; for the auto count to work the first empty push (Push "") must remain
 	LangDLL::LangDialog $(INSTALLER_LANGUAGE_TITLE) $(INSTALL_LANGUAGE_MESSAGE)
@@ -263,6 +268,9 @@ Function .onInit
 	InitPluginsDir
 	StrCmp $LANGUAGE "2052" 0 +3
 	File "/oname=$PLUGINSDIR\ieprotectedpage.ini" ".\resource\zh_CN\ieprotectedpage.ini"
+	Goto +3
+	StrCmp $LANGUAGE "1033" 0 +3
+	File "/oname=$PLUGINSDIR\ieprotectedpage.ini" ".\resource\en_US\ieprotectedpage.ini"
 	Goto +2
 	File "/oname=$PLUGINSDIR\ieprotectedpage.ini" ".\resource\zh_TW\ieprotectedpage.ini"
 	File "/oname=$PLUGINSDIR\PIMETextService_x86.dll" "..\build\pime\Release\PIMETextService.dll"
@@ -430,7 +438,7 @@ SectionGroup /e $(SECTION_GROUP)
 		SetOutPath "$INSTDIR\python\input_methods"
 		File /r "..\python\input_methods\chephonetic"
 	SectionEnd
-    
+
 	Section $(CHEEZ) cheez
 		SectionIn 2
 		SetOutPath "$INSTDIR\python\input_methods"
@@ -551,7 +559,7 @@ Section "" Register
 	${If} ${SectionIsSelected} ${chephonetic}
 		CreateShortCut "$SMPROGRAMS\$(PRODUCT_NAME)\$(SET_CHEPHONETIC).lnk" "$INSTDIR\python\input_methods\chephonetic\config\config.hta" "" "$INSTDIR\python\input_methods\chephonetic\icon.ico" 0
 	${EndIf}
-    
+
 	${If} ${SectionIsSelected} ${cheez}
 		CreateShortCut "$SMPROGRAMS\$(PRODUCT_NAME)\$(SET_CHEEZ).lnk" "$INSTDIR\python\input_methods\cheez\config\config.hta" "" "$INSTDIR\python\input_methods\cheez\icon.ico" 0
 	${EndIf}

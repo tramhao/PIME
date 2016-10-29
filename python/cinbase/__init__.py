@@ -116,7 +116,7 @@ class CinBase:
         cbTS.compositionBufferCursor = 0
         cbTS.compositionBufferType = "default"
         cbTS.compositionBufferChar = {}
-        cbTS.compositionBufferDict = {}
+        cbTS.compositionBufferMenuItem = ""
         cbTS.tempengcandidates = []
         cbTS.keyUsedState = False
         cbTS.selcandmode = False
@@ -138,7 +138,7 @@ class CinBase:
         cbTS.isShapeModeChanged = False
         cbTS.isShowCandidates = False
         cbTS.isShowPhraseCandidates = False
-        cbTS.isResetComposition = False
+        cbTS.isShowMessage = False
         cbTS.canSetCommitString = True
         cbTS.canUseSelKey = True
         cbTS.canUseSpaceAsPageKey = True
@@ -154,6 +154,18 @@ class CinBase:
         cbTS.keepComposition = False
         cbTS.keepType = ""
         cbTS.capsStates = True if self.getKeyState(VK_CAPITAL) else False
+
+        cbTS.bopomofolist = []
+        for i in range(0x3105,0x311A):
+            cbTS.bopomofolist.append(chr(i))
+        for i in range(0x3127,0x312A):
+            cbTS.bopomofolist.append(chr(i))
+        for i in range(0x311A,0x3127):
+            cbTS.bopomofolist.append(chr(i))
+        cbTS.bopomofolist.append(chr(0x02D9))
+        cbTS.bopomofolist.append(chr(0x02CA))
+        cbTS.bopomofolist.append(chr(0x02C7))
+        cbTS.bopomofolist.append(chr(0x02CB))
 
 
     # 輸入法被使用者啟用
@@ -371,10 +383,10 @@ class CinBase:
         cbTS.isWildcardChardefs = False
         cbTS.canSetCommitString = True
         cbTS.keyUsedState = False
-        
-        cbTS.showMessage("", 0)
-        
 
+        if cbTS.isShowMessage:
+            cbTS.isShowMessage = False
+            cbTS.showMessage("", 0)
 
         # 多功能前導字元 ---------------------------------------------------------
         if cbTS.multifunctionmode:
@@ -389,6 +401,7 @@ class CinBase:
                     cbTS.setCompositionString(cbTS.compositionChar)
                 if not cbTS.hidePromptMessages:
                     messagestr = '多功能前導字元'
+                    cbTS.isShowMessage = True
                     cbTS.showMessage(messagestr, 5)
                 cbTS.multifunctionmode = True
             elif len(cbTS.compositionChar) == 1 and cbTS.multifunctionmode:
@@ -556,13 +569,14 @@ class CinBase:
 
         # 輕鬆輸入法進入選單模式
         if cbTS.langMode == CHINESE_MODE and cbTS.imeDirName == "cheez" and cbTS.compositionChar + charStrLow == 'menu':
-            cbTS.compositionChar = ''
+            cbTS.compositionChar = '`M'
             if cbTS.compositionBufferMode:
-                self.removeCompositionBufferString(cbTS, 3, True)
+                self.setCompositionBufferString(cbTS, cbTS.compositionChar, 3)
             else:
-                cbTS.setCompositionString('')
+                cbTS.setCompositionString(cbTS.compositionChar)
             cbTS.multifunctionmode = False
             cbTS.closemenu = False
+
 
         # 功能選單 ----------------------------------------------------------------
         if cbTS.langMode == CHINESE_MODE and (cbTS.compositionChar == "`M" or cbTS.compositionChar == "`E"):
@@ -720,19 +734,7 @@ class CinBase:
                         pagecandidates = list(self.chunks(cbTS.menucandidates, cbTS.candPerPage))
                         cbTS.resetMenuCand = self.switchMenuType(cbTS, 2, ["0," + str(candCursor) + "," + str(currentCandPage)])
                     elif cbTS.menutype == 0 and itemName == "注音符號": # 切至注音符號頁面
-                        bopomofolist = []
-                        for i in range(0x3105,0x311A):
-                            bopomofolist.append(chr(i))
-                        for i in range(0x3127,0x312A):
-                            bopomofolist.append(chr(i))
-                        for i in range(0x311A,0x3127):
-                            bopomofolist.append(chr(i))
-                        bopomofolist.append(chr(0x02D9))
-                        bopomofolist.append(chr(0x02CA))
-                        bopomofolist.append(chr(0x02C7))
-                        bopomofolist.append(chr(0x02CB))
-                        
-                        cbTS.menucandidates = bopomofolist
+                        cbTS.menucandidates = cbTS.bopomofolist
                         pagecandidates = list(self.chunks(cbTS.menucandidates, cbTS.candPerPage))
                         cbTS.resetMenuCand = self.switchMenuType(cbTS, 4, ["0," + str(candCursor) + "," + str(currentCandPage)])
                     elif cbTS.menutype == 0 and itemName == "外語文字": # 切至外語文字頁面
@@ -760,6 +762,8 @@ class CinBase:
                             self.removeCompositionBufferString(cbTS, len(cbTS.compositionChar), True)
                         cbTS.resetMenuCand = self.closeMenuCand(cbTS)
                     elif cbTS.menutype == 2: # 切至特殊符號子頁面
+                        if cbTS.compositionBufferMode:
+                            cbTS.compositionBufferMenuItem = cbTS.candidateList[candCursor]
                         cbTS.menucandidates = cbTS.symbols.getCharDef(cbTS.candidateList[candCursor])
                         pagecandidates = list(self.chunks(cbTS.menucandidates, cbTS.candPerPage))
                         cbTS.resetMenuCand = self.switchMenuType(cbTS, 3, ["2," + str(candCursor) + "," + str(currentCandPage)])
@@ -768,7 +772,7 @@ class CinBase:
                             self.removeCompositionBufferString(cbTS, len(cbTS.compositionChar), True)
                             self.setCompositionBufferString(cbTS, cbTS.candidateList[candCursor], 0)
                             cbTS.compositionBufferType = "menusymbols"
-                            self.setCompositionBufferChar(cbTS, cbTS.compositionBufferType, 'none', cbTS.compositionBufferCursor)
+                            self.setCompositionBufferChar(cbTS, cbTS.compositionBufferType, cbTS.compositionBufferMenuItem, cbTS.compositionBufferCursor)
                         else:
                             cbTS.setCommitString(cbTS.candidateList[candCursor])
                         cbTS.resetMenuCand = self.closeMenuCand(cbTS)
@@ -782,6 +786,8 @@ class CinBase:
                             cbTS.setCommitString(cbTS.candidateList[candCursor])
                         cbTS.resetMenuCand = self.closeMenuCand(cbTS)
                     elif cbTS.menutype == 5: # 切至外語文字子頁面
+                        if cbTS.compositionBufferMode:
+                            cbTS.compositionBufferMenuItem = cbTS.candidateList[candCursor]
                         cbTS.menucandidates = cbTS.flangs.getCharDef(cbTS.candidateList[candCursor])
                         pagecandidates = list(self.chunks(cbTS.menucandidates, cbTS.candPerPage))
                         cbTS.resetMenuCand = self.switchMenuType(cbTS, 6, ["5," + str(candCursor) + "," + str(currentCandPage)])
@@ -790,7 +796,7 @@ class CinBase:
                             self.removeCompositionBufferString(cbTS, len(cbTS.compositionChar), True)
                             self.setCompositionBufferString(cbTS, cbTS.candidateList[candCursor], 0)
                             cbTS.compositionBufferType = "menuflangs"
-                            self.setCompositionBufferChar(cbTS, cbTS.compositionBufferType, 'none', cbTS.compositionBufferCursor)
+                            self.setCompositionBufferChar(cbTS, cbTS.compositionBufferType, cbTS.compositionBufferMenuItem, cbTS.compositionBufferCursor)
                         else:
                             cbTS.setCommitString(cbTS.candidateList[candCursor])
                         cbTS.resetMenuCand = self.closeMenuCand(cbTS)
@@ -820,14 +826,24 @@ class CinBase:
                         cbTS.resetMenuCand = self.switchMenuType(cbTS, menutype, ["7," + str(candCursor) + "," + str(currentCandPage)])
                     elif cbTS.menutype == 8: # 切換至表情符號分類子頁面
                         if cbTS.emojitype == 0:
+                            if cbTS.compositionBufferMode:
+                                cbTS.compositionBufferMenuItem = "emoticons," + cbTS.candidateList[candCursor]
                             cbTS.menucandidates = self.emoji.getCharDef("emoticons", cbTS.candidateList[candCursor])
                         elif cbTS.emojitype == 1:
+                            if cbTS.compositionBufferMode:
+                                cbTS.compositionBufferMenuItem = "pictographs," + cbTS.candidateList[candCursor]
                             cbTS.menucandidates = self.emoji.getCharDef("pictographs", cbTS.candidateList[candCursor])
                         elif cbTS.emojitype == 2:
+                            if cbTS.compositionBufferMode:
+                                cbTS.compositionBufferMenuItem = "miscellaneous," + cbTS.candidateList[candCursor]
                             cbTS.menucandidates = self.emoji.getCharDef("miscellaneous", cbTS.candidateList[candCursor])
                         elif cbTS.emojitype == 3:
+                            if cbTS.compositionBufferMode:
+                                cbTS.compositionBufferMenuItem = "dingbats," + cbTS.candidateList[candCursor]
                             cbTS.menucandidates = self.emoji.getCharDef("dingbats", cbTS.candidateList[candCursor])
                         elif cbTS.emojitype == 4:
+                            if cbTS.compositionBufferMode:
+                                cbTS.compositionBufferMenuItem = "transport," + cbTS.candidateList[candCursor]
                             cbTS.menucandidates = self.emoji.getCharDef("transport", cbTS.candidateList[candCursor])
                         pagecandidates = list(self.chunks(cbTS.menucandidates, cbTS.candPerPage))
                         cbTS.resetMenuCand = self.switchMenuType(cbTS, 9, ["8," + str(candCursor) + "," + str(currentCandPage)])
@@ -836,7 +852,7 @@ class CinBase:
                             self.removeCompositionBufferString(cbTS, len(cbTS.compositionChar), True)
                             self.setCompositionBufferString(cbTS, cbTS.candidateList[candCursor], 0)
                             cbTS.compositionBufferType = "menuemoji"
-                            self.setCompositionBufferChar(cbTS, cbTS.compositionBufferType, 'none', cbTS.compositionBufferCursor)
+                            self.setCompositionBufferChar(cbTS, cbTS.compositionBufferType, cbTS.compositionBufferMenuItem, cbTS.compositionBufferCursor)
                         else:
                             cbTS.setCommitString(cbTS.candidateList[candCursor])
                         cbTS.resetMenuCand = self.closeMenuCand(cbTS)
@@ -1379,7 +1395,6 @@ class CinBase:
                         if key > cbTS.compositionBufferCursor - 1:
                             cbTS.compositionBufferChar[key - 1] = cbTS.compositionBufferChar.pop(key)
                     self.removeCompositionBufferString(cbTS, 1, True)
-                    cbTS.compositionBufferDict = {}
                     changelastCommitString = True
                 if cbTS.compositionBufferString == '':
                     cbTS.compositionBufferChar = {}
@@ -1394,7 +1409,6 @@ class CinBase:
                         if key > cbTS.compositionBufferCursor:
                             cbTS.compositionBufferChar[key - 1] = cbTS.compositionBufferChar.pop(key)
                     self.removeCompositionBufferString(cbTS, 1, False)
-                    cbTS.compositionBufferDict = {}
                     changelastCommitString = True
                 if cbTS.compositionBufferString == '':
                     cbTS.compositionBufferChar = {}
@@ -1404,14 +1418,12 @@ class CinBase:
             elif keyCode == VK_ESCAPE and not cbTS.keyUsedState:
                 self.resetComposition(cbTS)
                 self.resetCompositionBuffer(cbTS)
-                cbTS.compositionBufferDict = {}
                 cbTS.compositionBufferChar = {}
                 cbTS.tempEnglishMode = False
             elif keyCode == VK_RETURN:
                 cbTS.setCommitString(cbTS.compositionBufferString)
                 self.resetComposition(cbTS)
                 self.resetCompositionBuffer(cbTS)
-                cbTS.compositionBufferDict = {}
                 cbTS.compositionBufferChar = {}
                 cbTS.tempEnglishMode = False
             elif keyCode == VK_DOWN:
@@ -1420,26 +1432,58 @@ class CinBase:
 
                 if selStringPos in cbTS.compositionBufferChar:
                     sellist = cbTS.compositionBufferChar[selStringPos]
-                    cbTS.compositionChar = sellist[1]
-                    if sellist[0] == 'default':
+                    if sellist[0] == 'msymbols':
+                        cbTS.compositionChar = sellist[1] if sellist[1][0] != "`" else sellist[1][1:]
+                        candidates = cbTS.msymbols.getCharDef(cbTS.compositionChar)
+                        cbTS.selcandmode = True
+                    elif sellist[0] == 'dayisymbols':
+                        cbTS.compositionChar = sellist[1]
+                        candidates = cbTS.dsymbols.getCharDef(sellist[1][1:])
+                        cbTS.selcandmode = True
+                    elif sellist[0] == 'fsymbols':
+                        cbTS.compositionChar = 'none'
+                        candidates = cbTS.fsymbols.getCharDef(sellist[1])
+                        cbTS.selcandmode = True
+                    elif sellist[0] == 'menusymbols':
+                        cbTS.compositionChar = 'none'
+                        candidates = cbTS.symbols.getCharDef(sellist[1])
+                        cbTS.selcandmode = True
+                    elif sellist[0] == 'menubopomofo':
+                        cbTS.compositionChar = 'none'
+                        candidates = cbTS.bopomofolist
+                        cbTS.selcandmode = True
+                    elif sellist[0] == 'menuflangs':
+                        cbTS.compositionChar = 'none'
+                        candidates = cbTS.flangs.getCharDef(sellist[1])
+                        cbTS.selcandmode = True
+                    elif sellist[0] == 'menuemoji':
+                        cbTS.compositionChar = 'none'
+                        elist = sellist[1].split(',', 2)
+                        candidates = self.emoji.getCharDef(elist[0], elist[1])
+                        cbTS.selcandmode = True
+                    elif sellist[0] == 'default':
                         if cbTS.cin.isInCharDef(sellist[1]):
+                            cbTS.compositionChar = sellist[1]
                             candidates = cbTS.cin.getCharDef(sellist[1])
                             if cbTS.sortByPhrase and candidates:
                                 candidates = self.sortByPhrase(cbTS, copy.deepcopy(candidates))
                             cbTS.selcandmode = True
-                    elif sellist[0] == 'dsymbols':
-                        candidates = cbTS.dsymbols.getCharDef(sellist[1][1:])
-                        cbTS.dayisymbolsmode = True
-                        cbTS.selcandmode = True
-                    elif sellist[0] == 'msymbols':
-                        candidates = cbTS.msymbols.getCharDef(sellist[1])
-                        cbTS.ctrlsymbolsmode = True
-                        cbTS.selcandmode = True
+                    else:
+                        if cbTS.cin.isHaveKey(cbTS.compositionBufferString[cbTS.compositionBufferCursor]):
+                            cbTS.compositionChar = cbTS.cin.getKey(cbTS.compositionBufferString[cbTS.compositionBufferCursor])
+                            candidates = cbTS.cin.getCharDef(cbTS.compositionChar)
+                            if cbTS.sortByPhrase and candidates:
+                                candidates = self.sortByPhrase(cbTS, copy.deepcopy(candidates))
+                            cbTS.selcandmode = True
+                        else:
+                            cbTS.selcandmode = False
+                            cbTS.isShowMessage = True
+                            cbTS.showMessage("沒有候選字...", 3)
 
-                if cbTS.selcandmode:
-                    cbTS.isShowCandidates = True
-                    cbTS.canSetCommitString = False
-                    cbTS.tempengcandidates = copy.deepcopy(candidates)
+                    if cbTS.selcandmode:
+                        cbTS.isShowCandidates = True
+                        cbTS.canSetCommitString = False
+                        cbTS.tempengcandidates = copy.deepcopy(candidates)
 
             if changelastCommitString and cbTS.compositionBufferString != '':
                 if cbTS.compositionBufferCursor > 0:
@@ -1542,6 +1586,7 @@ class CinBase:
                                     if cbTS.isWildcardChardefs:
                                         if not cbTS.hidePromptMessages:
                                             messagestr = cbTS.cin.getCharEncode(commitStr)
+                                            cbTS.isShowMessage = True
                                             cbTS.showMessage(messagestr, 5)
                                         cbTS.wildcardcandidates = []
                                         cbTS.wildcardpagecandidates = []
@@ -1602,6 +1647,7 @@ class CinBase:
                                     if cbTS.isWildcardChardefs:
                                         if not cbTS.hidePromptMessages:
                                             messagestr = cbTS.cin.getCharEncode(commitStr)
+                                            cbTS.isShowMessage = True
                                             cbTS.showMessage(messagestr, 5)
                                         cbTS.wildcardcandidates = []
                                         cbTS.wildcardpagecandidates = []
@@ -1782,6 +1828,7 @@ class CinBase:
                                         cbTS.lastCommitString = commitStr
                                         if not cbTS.hidePromptMessages:
                                             messagestr = cbTS.cin.getCharEncode(commitStr)
+                                            cbTS.isShowMessage = True
                                             cbTS.showMessage(messagestr, 5)
                                         
                                         if cbTS.compositionBufferMode:
@@ -1795,8 +1842,10 @@ class CinBase:
                                             cbTS.phrasemode = True
                                         self.resetComposition(cbTS)
                                     else:
+                                        cbTS.isShowMessage = True
                                         cbTS.showMessage("請輸入 Unicode 編碼...", 3)
                         else:
+                            cbTS.isShowMessage = True
                             cbTS.showMessage("查無組字...", 3)
                             if cbTS.autoClearCompositionChar:
                                 if cbTS.compositionBufferMode:
@@ -1807,7 +1856,6 @@ class CinBase:
                                 self.resetComposition(cbTS)
                             if cbTS.playSoundWhenNonCand:
                                 winsound.PlaySound('alert', winsound.SND_ASYNC)
-
                 cbTS.setShowCandidates(False)
                 cbTS.isShowCandidates = False
 
@@ -1843,18 +1891,8 @@ class CinBase:
                             i = cbTS.selKeys.index(charStr) 
                         if i < cbTS.candPerPage and i < len(cbTS.candidateList):
                             commitStr = cbTS.candidateList[i]
-
-                            # 如果使用打繁出簡，就轉成簡體中文
-                            if cbTS.outputSimpChinese:
-                                commitStr = cbTS.opencc.convert(commitStr)
-
-                            if not cbTS.compositionBufferMode:
-                                cbTS.setCommitString(commitStr)
-                            else:
-                                if cbTS.imeDirName == "chedayi" and cbTS.shapeMode == FULLSHAPE_MODE and self.isInSelKeys(cbTS, charCode):
-                                    self.setCompositionBufferString(cbTS, commitStr, 1)
-                                else:
-                                    self.setCompositionBufferString(cbTS, commitStr, 0)
+                            cbTS.compositionBufferType = "phrase"
+                            self.setOutputString(cbTS, commitStr)
 
                             cbTS.phrasemode = False
                             cbTS.isShowPhraseCandidates = False
@@ -1906,15 +1944,9 @@ class CinBase:
                     if cbTS.isShowPhraseCandidates:
                         # 找出目前游標位置的選字鍵 (1234..., asdf...等等)
                         commitStr = cbTS.candidateList[candCursor]
-                        # 如果使用打繁出簡，就轉成簡體中文
-                        if cbTS.outputSimpChinese:
-                            commitStr = cbTS.opencc.convert(commitStr)
-
-                        if not cbTS.compositionBufferMode:
-                            cbTS.setCommitString(commitStr)
-                        else:
-                            self.setCompositionBufferString(cbTS, commitStr, 0)
-
+                        cbTS.compositionBufferType = "phrase"
+                        self.setOutputString(cbTS, commitStr)
+                        
                         cbTS.phrasemode = False
                         cbTS.isShowPhraseCandidates = False
 
@@ -2019,11 +2051,6 @@ class CinBase:
         #print('Type = ' + cbTS.compositionBufferType)
         #print(cbTS.compositionBufferChar)
 
-        if cbTS.isResetComposition and not cbTS.phrasemode:
-            cbTS.isResetComposition = False
-            cbTS.setShowCandidates(False)
-            cbTS.setCandidateList([])
-
         return True
 
     # 使用者放開按鍵，在 app 收到前先過濾那些鍵是輸入法需要的。
@@ -2079,6 +2106,7 @@ class CinBase:
             cbTS.multifunctionmode = False
             if not cbTS.hidePromptMessages:
                 message = '中文模式' if cbTS.langMode == CHINESE_MODE else '英數模式'
+                cbTS.isShowMessage = True
                 cbTS.showMessage(message, 3)
             if cbTS.showCandidates or len(cbTS.compositionChar) > 0 or len(cbTS.compositionBufferString) > 0:
                 if cbTS.compositionBufferMode and not cbTS.selcandmode:
@@ -2094,6 +2122,7 @@ class CinBase:
             cbTS.isShapeModeChanged = False
             if not cbTS.hidePromptMessages:
                 message = '半形模式' if cbTS.shapeMode == HALFSHAPE_MODE else '全形模式'
+                cbTS.isShowMessage = True
                 cbTS.showMessage(message, 3)
             if cbTS.showCandidates or len(cbTS.compositionChar) > 0:
                 if cbTS.compositionBufferMode and not cbTS.selcandmode:
@@ -2121,9 +2150,9 @@ class CinBase:
 
 
     def onCommand(self, cbTS, commandId, commandType):
-        if commandId == ID_SWITCH_LANG and commandType == COMMAND_LEFT_CLICK:  # 切換中英文模式
+        if commandId == ID_SWITCH_LANG and commandType == 0:  # 切換中英文模式
             self.toggleLanguageMode(cbTS)
-        elif commandId == ID_SWITCH_SHAPE and commandType == COMMAND_LEFT_CLICK:  # 切換全形/半形
+        elif commandId == ID_SWITCH_SHAPE and commandType == 0:  # 切換全形/半形
             self.toggleShapeMode(cbTS)
         elif commandId == ID_SETTINGS:  # 開啟設定工具
             config_tool = os.path.join(cbTS.curdir, "config", "config.hta")
@@ -2375,8 +2404,8 @@ class CinBase:
         cbTS.isShowCandidates = False
         cbTS.setCandidateCursor(0)
         cbTS.setCandidatePage(0)
-        cbTS.setShowCandidates(False)
         cbTS.setCandidateList([])
+        cbTS.setShowCandidates(False)
         cbTS.wildcardcandidates = []
         cbTS.wildcardpagecandidates = []
         cbTS.menumode = False
@@ -2388,12 +2417,10 @@ class CinBase:
         cbTS.keepComposition = False
         cbTS.selcandmode = False
         cbTS.lastCompositionCharLength = 0
-        cbTS.isResetComposition = True
 
     # 重置輸入的字根
     def resetCompositionBuffer(self, cbTS):
         if cbTS.compositionBufferMode:
-            cbTS.compositionBufferDict = {}
             cbTS.compositionBufferCursor = 0
             cbTS.compositionBufferString = ''
             cbTS.setCompositionString('')
@@ -2537,6 +2564,7 @@ class CinBase:
         if cbTS.isWildcardChardefs:
             if not cbTS.hidePromptMessages:
                 messagestr = cbTS.cin.getCharEncode(commitStr)
+                cbTS.isShowMessage = True
                 cbTS.showMessage(messagestr, 5)
             cbTS.wildcardcandidates = []
             cbTS.wildcardpagecandidates = []
@@ -2558,7 +2586,6 @@ class CinBase:
                     RemoveStringLength = self.calcRemoveStringLength(cbTS) - 1
                 else:
                     RemoveStringLength = self.calcRemoveStringLength(cbTS)
-                cbTS.compositionBufferDict = {}
             else:
                 self.removeCompositionBufferString(cbTS, 1, False if cbTS.compositionBufferCursor < len(cbTS.compositionBufferString) else True)
             self.setCompositionBufferString(cbTS, commitStr, RemoveStringLength)
@@ -2719,8 +2746,9 @@ class CinBase:
 
         # 設定 UI 外觀
         cbTS.customizeUI(candFontSize = cfg.fontSize,
-                                        candPerRow = cfg.candPerRow,
-                                        candUseCursor = cfg.cursorCandList)
+                        candFontName = 'MingLiu',
+                        candPerRow = cfg.candPerRow,
+                        candUseCursor = cfg.cursorCandList)
 
         # 設定選字按鍵 (123456..., asdf.... 等)
         # if cbTS.cin.getSelection():
